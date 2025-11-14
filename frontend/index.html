@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FirstScanIt - PUF Anti-Counterfeit Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔐 FirstScanIt</h1>
+      <p class="tagline">PUF-Enabled Cryptographic Anti-Counterfeit Solution</p>
+    </header>
+    
+    <main>
+      <section class="hero">
+        <h2>Military-Grade Product Authentication</h2>
+        <p>RSA-2048 Cryptography + Physical Unclonable Functions (PUF)</p>
+      </section>
+      
+      <section class="generate-section">
+        <h3>🔐 Generate PUF-Enabled QR Codes</h3>
+        <p style="color: #666; margin-bottom: 20px;"><strong>Note:</strong> Each product unit gets a UNIQUE PUF fingerprint that cannot be copied or forged.</p>
+        
+        <form id="generateForm">
+          <div class="form-group">
+            <label for="productName">Product Name</label>
+            <input type="text" id="productName" value="Amoxicillin 500mg" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="brandName">Brand Name</label>
+            <input type="text" id="brandName" value="Demo Pharma Ltd" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="quantity">Number of Units (each gets unique PUF)</label>
+            <input type="number" id="quantity" value="5" min="1" max="100" required>
+          </div>
+          
+          <button type="submit" class="btn btn-primary">
+            🚀 Generate PUF-Enabled QR Codes
+          </button>
+        </form>
+        
+        <div id="result" class="result hidden">
+          <h4>✅ PUF-Enabled QR Codes Generated</h4>
+          <p style="color: #666; margin-bottom: 20px;">Each QR code below has a UNIQUE PUF fingerprint embedded</p>
+          
+          <div id="qrCodesList" class="qr-codes-list">
+            <!-- QR codes will be inserted here -->
+          </div>
+          
+          <div class="actions">
+            <button onclick="downloadAllQRs()" class="btn btn-secondary">
+              📥 Download All QR Codes
+            </button>
+            <button onclick="printAllQRs()" class="btn btn-secondary">
+              🖨️ Print All QR Codes
+            </button>
+          </div>
+        </div>
+        
+        <div id="loading" class="loading hidden">
+          <div class="spinner"></div>
+          <p>Generating PUF fingerprints and QR codes...</p>
+        </div>
+        
+        <div id="error" class="error hidden"></div>
+      </section>
+
+      <section class="info-section">
+        <h3>🎯 How PUF Works</h3>
+        <div class="info-grid">
+          <div class="info-card">
+            <h4>1️⃣ Unique per Unit</h4>
+            <p>Each product gets a UNIQUE physical fingerprint (PUF) during manufacturing</p>
+          </div>
+          <div class="info-card">
+            <h4>2️⃣ Cryptographically Signed</h4>
+            <p>RSA-2048 signature ensures the data hasn't been tampered</p>
+          </div>
+          <div class="info-card">
+            <h4>3️⃣ Cannot be Copied</h4>
+            <p>Even if someone photocopies the QR, the physical pattern is different</p>
+          </div>
+          <div class="info-card">
+            <h4>4️⃣ Instant Detection</h4>
+            <p>Counterfeits are detected immediately when scanned</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>
