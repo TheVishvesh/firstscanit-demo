@@ -5,26 +5,136 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scan QR - FirstScanIt</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .serial-input-section {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(245, 158, 11, 0.05) 100%);
+      padding: 30px;
+      border-radius: 12px;
+      border: 2px solid #fcd34d;
+      margin-bottom: 20px;
+    }
+    
+    .serial-warning {
+      background: #fef3c7;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #f59e0b;
+      margin-bottom: 15px;
+      color: #92400e;
+    }
+    
+    .verification-step {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin: 15px 0;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      border-left: 4px solid #2563eb;
+    }
+    
+    .step-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 35px;
+      height: 35px;
+      background: #2563eb;
+      color: white;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🔍 Scan QR Code</h1>
-      <p>Verify product authenticity with PUF + Cryptography</p>
+      <h1>🔍 Scan QR Code + Verify Serial</h1>
+      <p>Two-Layer Authentication: Cryptography + Physical Serial Matching</p>
       <a href="/" class="back-link">← Back to Home</a>
     </header>
     
     <main class="scan-page">
       <div style="max-width: 600px; margin: 0 auto;">
-        <div class="manual-entry" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%); padding: 30px; border-radius: 12px; border: 2px solid #e0e7ff;">
-          <h3 style="color: #333; margin-top: 0;">📱 Paste QR Data to Verify</h3>
-          <p style="color: #666; font-size: 0.95rem;">
-            Paste the QR code data below. The system will verify both the cryptographic signature 
-            and the physical PUF pattern from the label.
-          </p>
-          <textarea id="manualQR" placeholder="Paste QR data here..." rows="4" style="margin: 15px 0;"></textarea>
-          <button onclick="verifyManual()" class="btn btn-primary" style="width: 100%;">
-            🔍 Verify Product
+        
+        <!-- WARNING -->
+        <div class="serial-warning">
+          <strong>⚠️ IMPORTANT:</strong> This product can ONLY be verified if:
+          <br/>1. QR code matches the product's PHYSICAL SERIAL NUMBER printed on the package
+          <br/>2. Both cryptographic signature AND PUF pattern match
+          <br/>3. If serial number doesn't match QR → COUNTERFEIT
+        </div>
+
+        <!-- Verification Steps -->
+        <div style="background: #f0f9ff; padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 2px solid #e0f2fe;">
+          <h3 style="color: #2563eb; margin-top: 0;">How to Verify:</h3>
+          
+          <div class="verification-step">
+            <div class="step-number">1</div>
+            <div>
+              <strong>Find Physical Serial Number</strong>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">
+                Look for "SERIAL: UNIT-XXXXX" printed on the product package
+              </p>
+            </div>
+          </div>
+          
+          <div class="verification-step">
+            <div class="step-number">2</div>
+            <div>
+              <strong>Scan QR Code</strong>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">
+                Use any phone camera to scan the QR code on the package
+              </p>
+            </div>
+          </div>
+          
+          <div class="verification-step">
+            <div class="step-number">3</div>
+            <div>
+              <strong>Enter Physical Serial</strong>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">
+                Type the serial number from the package into the form below
+              </p>
+            </div>
+          </div>
+          
+          <div class="verification-step">
+            <div class="step-number">4</div>
+            <div>
+              <strong>Get Result</strong>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">
+                System confirms if serial matches QR (GENUINE) or doesn't match (COUNTERFEIT)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Form -->
+        <div class="serial-input-section">
+          <h3 style="color: #333; margin-top: 0;">Enter Product Information:</h3>
+          
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">
+              Physical Serial Number on Package
+            </label>
+            <input type="text" id="physicalSerial" placeholder="e.g., UNIT-0005" 
+              style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; font-family: monospace; font-weight: 600;">
+            <p style="color: #666; font-size: 0.85rem; margin: 5px 0 0 0;">Must match exactly with the PHYSICAL text on the package</p>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px;">
+              QR Code Data (from scan)
+            </label>
+            <textarea id="manualQR" placeholder="Paste QR data here..." rows="3" 
+              style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9rem; font-family: monospace;"></textarea>
+          </div>
+          
+          <button onclick="verifyWithSerial()" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1.1rem;">
+            🔒 Verify Product
           </button>
         </div>
         
