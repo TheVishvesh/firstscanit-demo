@@ -1,74 +1,196 @@
 const API_URL = 'https://api.firstscanit.com';
 
-// Check if we're on verify page
-const isVerifyPage = window.location.pathname.includes('scan') || window.location.pathname.includes('verify') || window.location.pathname.includes('index');
+// Initialize when page loads
+window.addEventListener('DOMContentLoaded', () => {
+  const generateForm = document.getElementById('generateForm');
+  const verifyForm = document.getElementById('verifyForm');
 
-if (isVerifyPage) {
-  // Initialize verify page functionality
-  initializeVerifyPage();
+  if (generateForm) {
+    generateForm.addEventListener('submit', handleGenerateQR);
+  }
+
+  if (verifyForm) {
+    verifyForm.addEventListener('submit', handleVerifyQR);
+  }
+});
+
+// ============================================
+// GENERATE QR CODE FUNCTIONALITY
+// ============================================
+
+function handleGenerateQR(e) {
+  e.preventDefault();
+
+  const productName = document.getElementById('productName').value;
+  const brandName = document.getElementById('brandName').value;
+  const batchNumber = document.getElementById('batchNumber').value;
+  const quantity = parseInt(document.getElementById('quantity').value);
+  const facility = document.getElementById('facility').value || 'Unknown';
+  const mfgDate = document.getElementById('mfgDate').value;
+  const expDate = document.getElementById('expDate').value;
+
+  // Update preview
+  updatePreview({
+    productName,
+    brandName,
+    batchNumber,
+    quantity,
+    facility,
+    mfgDate,
+    expDate
+  });
+
+  // Generate QR codes
+  generateQRCodes({
+    productName,
+    brandName,
+    batchNumber,
+    quantity,
+    facility,
+    mfgDate,
+    expDate
+  });
 }
 
-function initializeVerifyPage() {
-  const qrForm = document.getElementById('qrForm');
-  const cameraBtn = document.getElementById('cameraBtn');
-  const cameraInput = document.getElementById('cameraInput');
-
-  if (qrForm) {
-    qrForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const qrData = document.getElementById('qrInput').value;
-      if (qrData) {
-        verifyEncryptedQR(qrData);
-      } else {
-        alert('Please paste QR code data or scan a QR code');
-      }
-    });
-  }
-
-  if (cameraBtn) {
-    cameraBtn.addEventListener('click', () => {
-      cameraInput.click();
-    });
-  }
-
-  if (cameraInput) {
-    cameraInput.addEventListener('change', (e) => {
-      // Handle camera upload (simplified)
-      alert('Camera feature coming soon - please paste QR data for now');
-    });
-  }
+function updatePreview(data) {
+  const previewInfo = document.getElementById('previewInfo');
+  
+  previewInfo.innerHTML = `
+    <div style="text-align: left;">
+      <p><strong>Product:</strong> ${data.productName}</p>
+      <p><strong>Brand:</strong> ${data.brandName}</p>
+      <p><strong>Batch:</strong> ${data.batchNumber}</p>
+      <p><strong>Quantity:</strong> ${data.quantity} units</p>
+      <p><strong>Facility:</strong> ${data.facility}</p>
+      ${data.mfgDate ? `<p><strong>Mfg Date:</strong> ${data.mfgDate}</p>` : ''}
+      ${data.expDate ? `<p><strong>Exp Date:</strong> ${data.expDate}</p>` : ''}
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+        <p style="color: #10b981; font-weight: 600;">✓ Ready to generate ${data.quantity} QR codes</p>
+      </div>
+    </div>
+  `;
 }
 
-function verifyEncryptedQR(qrHash) {
-  const resultSection = document.getElementById('resultSection');
-  const resultContainer = document.getElementById('resultContainer');
+function generateQRCodes(data) {
+  const resultsDiv = document.getElementById('qrResults');
+  const container = document.getElementById('qrCodesContainer');
 
-  if (!resultSection || !resultContainer) {
-    console.error('Result elements not found');
+  // Show loading
+  resultsDiv.classList.remove('hidden');
+  container.innerHTML = `
+    <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+      <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #e0e7ff; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 1rem; color: #666;">Generating QR codes...</p>
+      <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    </div>
+  `;
+
+  container.scrollIntoView({ behavior: 'smooth' });
+
+  // Call API
+  fetch(`${API_URL}/api/generate-qr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      productName: data.productName,
+      brandName: data.brandName,
+      quantity: data.quantity,
+      facility: data.facility
+    })
+  })
+  .then(r => r.json())
+  .then(response => displayQRCodes(response, container))
+  .catch(err => {
+    console.error('Error:', err);
+    container.innerHTML = `
+      <div style="grid-column: 1/-1; color: #ef4444; text-align: center; padding: 2rem;">
+        <p>Error generating QR codes. Please try again.</p>
+      </div>
+    `;
+  });
+}
+
+function displayQRCodes(response, container) {
+  if (!response.batch || !response.batch.qrCodes) {
+    container.innerHTML = '<p style="color: #999;">No QR codes generated</p>';
     return;
   }
 
+  let html = '';
+  response.batch.qrCodes.forEach((qr, index) => {
+    html += `
+      <div class="qr-card">
+        <img src="${qr.qrImage}" alt="QR Code ${index + 1}">
+        <p><strong>${qr.unitId}</strong></p>
+        <p style="font-size: 0.85rem; color: #999;">${qr.qrHash.substring(0, 12)}...</p>
+        <div class="qr-buttons">
+          <button onclick="copyToClipboard('${qr.qrHash}')" class="btn btn-secondary">
+            📋 Copy
+          </button>
+          <button onclick="downloadQR('${qr.qrImage}', '${qr.unitId}')" class="btn btn-secondary">
+            ⬇️ Download
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert('QR hash copied to clipboard!');
+  });
+}
+
+function downloadQR(imageData, unitId) {
+  const link = document.createElement('a');
+  link.href = imageData;
+  link.download = `${unitId}.png`;
+  link.click();
+}
+
+// ============================================
+// VERIFY QR CODE FUNCTIONALITY
+// ============================================
+
+function handleVerifyQR(e) {
+  e.preventDefault();
+
+  const qrData = document.getElementById('qrData').value.trim();
+  const productSerial = document.getElementById('productSerial').value.trim();
+
+  if (!qrData) {
+    alert('Please enter QR code data');
+    return;
+  }
+
+  verifyQRCode(qrData, productSerial);
+}
+
+function verifyQRCode(qrHash, productSerial) {
+  const resultCard = document.getElementById('verifyResult');
+  const resultContent = document.getElementById('resultContent');
+
   // Show loading
-  resultContainer.innerHTML = `
-    <div style="text-align: center; padding: 3rem;">
-      <div style="display: inline-block; width: 50px; height: 50px; border: 4px solid #e0e7ff; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <p style="margin-top: 1rem; color: #666; font-size: 1.1rem;">Verifying product...</p>
+  resultCard.classList.remove('hidden');
+  resultContent.innerHTML = `
+    <div style="text-align: center; padding: 2rem;">
+      <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #e0e7ff; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 1rem; color: #666;">Verifying product...</p>
       <p style="margin-top: 0.5rem; color: #999; font-size: 0.9rem;">Checking encrypted QR code against blockchain...</p>
-      <style>
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      </style>
+      <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
     </div>
   `;
-  resultSection.classList.remove('hidden');
-  resultSection.scrollIntoView({ behavior: 'smooth' });
+
+  resultCard.scrollIntoView({ behavior: 'smooth' });
 
   // Call API
   fetch(`${API_URL}/api/verify-encrypted-qr`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       qrHash: qrHash,
       latitude: 0,
       longitude: 0,
@@ -76,97 +198,75 @@ function verifyEncryptedQR(qrHash) {
     })
   })
   .then(r => r.json())
-  .then(data => showResult(data, resultContainer, resultSection))
+  .then(data => displayVerificationResult(data, resultContent, resultCard))
   .catch(err => {
     console.error('Error:', err);
-    resultContainer.innerHTML = `
-      <div style="color: #ef4444; text-align: center; padding: 3rem; background: rgba(239, 68, 68, 0.05); border-radius: 1rem; border: 1px solid rgba(239, 68, 68, 0.2);">
-        <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">⚠️ Verification Error</p>
+    resultContent.innerHTML = `
+      <div class="result-status">⚠️</div>
+      <h3 class="result-title">Verification Error</h3>
+      <p class="result-subtitle">Failed to verify product</p>
+      <div class="result-details">
         <p>Error: ${err.message}</p>
-        <p style="color: #999; font-size: 0.9rem; margin-top: 1rem;">Please check your internet connection and try again.</p>
+        <p>Please check your internet connection and try again.</p>
       </div>
     `;
   });
 }
 
-function showResult(data, resultContainer, resultSection) {
+function displayVerificationResult(data, resultContent, resultCard) {
   const isGenuine = data.valid;
-  const className = isGenuine ? 'result-genuine' : 'result-counterfeit';
+  const className = isGenuine ? 'genuine' : 'counterfeit';
+
+  resultCard.classList.add(className);
 
   let html = `
-    <div class="result-container ${className}">
-      <div class="result-header">
-        <div class="result-status">${isGenuine ? '✅' : '❌'}</div>
-        <h2 class="result-title">${isGenuine ? 'Genuine Product' : 'Counterfeit Detected'}</h2>
-        <p class="result-subtitle">${data.message || 'Verification complete'}</p>
-      </div>
+    <div class="result-status">${isGenuine ? '✅' : '❌'}</div>
+    <h3 class="result-title">${isGenuine ? 'Genuine Product' : 'Counterfeit Detected'}</h3>
+    <p class="result-subtitle">${data.message || 'Verification complete'}</p>
 
-      <div style="background: white; padding: 2rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid #e0e7ff;">
-        <h3 style="margin-bottom: 1.5rem; color: #333; font-size: 1.1rem;">✓ Verification Details</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
-          <div>
-            <p style="color: #999; font-size: 0.9rem; margin-bottom: 0.5rem;">Confidence Score</p>
-            <p style="font-size: 1.75rem; font-weight: 700; color: ${isGenuine ? '#10b981' : '#ef4444'};">${data.confidence || 0}%</p>
-          </div>
-          <div>
-            <p style="color: #999; font-size: 0.9rem; margin-bottom: 0.5rem;">Status</p>
-            <p style="font-size: 1.1rem; font-weight: 600; color: #333;">${data.reason}</p>
-          </div>
-          <div>
-            <p style="color: #999; font-size: 0.9rem; margin-bottom: 0.5rem;">Verification Method</p>
-            <p style="font-size: 1rem; color: #333;">Encrypted QR + Blockchain</p>
-          </div>
-          <div>
-            <p style="color: #999; font-size: 0.9rem; margin-bottom: 0.5rem;">Timestamp</p>
-            <p style="font-size: 0.9rem; color: #666;">${new Date().toLocaleString()}</p>
-          </div>
-        </div>
-      </div>
+    <div class="result-details">
+      <p><strong>Confidence:</strong> ${data.confidence || 0}%</p>
+      <p><strong>Status:</strong> ${data.reason}</p>
+      <p><strong>Method:</strong> Encrypted QR + Blockchain</p>
+      <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+    </div>
   `;
 
   if (data.product) {
     html += `
-      <div style="background: white; padding: 2rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid #e0e7ff;">
-        <h3 style="margin-bottom: 1rem; color: #333; font-size: 1.1rem;">📦 Product Information</h3>
-        <div style="display: grid; gap: 0.75rem; color: #666;">
-          <p><strong style="color: #333;">Product Name:</strong> ${data.product.name || 'N/A'}</p>
-          <p><strong style="color: #333;">Brand:</strong> ${data.product.brand || 'N/A'}</p>
-          <p><strong style="color: #333;">Unit ID:</strong> ${data.product.unit || 'N/A'}</p>
-        </div>
+      <div class="result-details" style="background: #f0f9ff; border-left: 3px solid #2563eb;">
+        <p><strong>Product:</strong> ${data.product.name}</p>
+        <p><strong>Brand:</strong> ${data.product.brand}</p>
+        <p><strong>Unit ID:</strong> ${data.product.unit}</p>
       </div>
     `;
   }
 
   if (isGenuine) {
     html += `
-      <div style="background: rgba(16, 185, 129, 0.1); padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid #10b981;">
-        <p style="color: #065f46; font-weight: 600; margin-bottom: 0.5rem;">✓ Product Verified</p>
-        <p style="color: #059669; font-size: 0.95rem;">This product has passed all security checks and is genuine. It is safe to purchase and use.</p>
+      <div class="result-details" style="background: #ecfdf5; border-left: 3px solid #10b981; color: #065f46;">
+        <p><strong>✓ Product verified successfully</strong></p>
+        <p>This product has passed all security checks and is safe to use.</p>
       </div>
     `;
   } else {
     html += `
-      <div style="background: rgba(239, 68, 68, 0.1); padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid #ef4444;">
-        <p style="color: #7f1d1d; font-weight: 600; margin-bottom: 0.5rem;">⚠️ DO NOT BUY</p>
-        <p style="color: #b91c1c; font-size: 0.95rem;">This product failed verification and is likely counterfeit. Please avoid purchasing and report to relevant authorities if encountered.</p>
+      <div class="result-details" style="background: #fee2e2; border-left: 3px solid #ef4444; color: #7f1d1d;">
+        <p><strong>⚠️ DO NOT PURCHASE</strong></p>
+        <p>This product failed verification and is likely counterfeit.</p>
       </div>
     `;
   }
 
   html += `
-    </div>
-
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
-      <button onclick="location.href='/'" style="padding: 0.875rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-        ← Generate QR Codes
-      </button>
-      <button onclick="document.getElementById('qrInput').value = ''; document.getElementById('resultSection').classList.add('hidden');" style="padding: 0.875rem 1.5rem; background: #f3f4f6; color: #333; border: 1px solid #e5e7eb; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+    <div style="text-align: center; margin-top: 1.5rem;">
+      <button onclick="document.getElementById('qrData').value = ''; document.getElementById('verifyResult').classList.add('hidden');" class="btn btn-secondary">
         Verify Another Product
       </button>
     </div>
   `;
 
-  resultContainer.innerHTML = html;
+  resultContent.innerHTML = html;
 }
 
 // Handle URL parameters if QR data passed in URL
@@ -174,12 +274,12 @@ window.addEventListener('load', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const qrData = urlParams.get('qr');
   
-  if (qrData && isVerifyPage) {
+  if (qrData) {
     setTimeout(() => {
-      const qrInput = document.getElementById('qrInput');
+      const qrInput = document.getElementById('qrData');
       if (qrInput) {
         qrInput.value = qrData;
-        verifyEncryptedQR(qrData);
+        verifyQRCode(qrData, '');
       }
     }, 500);
   }
