@@ -3,106 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FirstScanIt - Verify Product Authenticity</title>
-  <link rel="stylesheet" href="style-brand.css">
+  <title>FirstScanIt - Generate & Verify QR Codes</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Navigation -->
   <nav class="navbar">
-    <div class="nav-container">
+    <div class="container">
       <div class="logo">FirstScanIt</div>
       <div class="nav-links">
-        <a href="/" class="nav-link">← Back to Home</a>
+        <a href="/" class="nav-link">Home</a>
+        <a href="#generate" class="nav-link">Generate QR</a>
+        <a href="#verify" class="nav-link">Verify QR</a>
       </div>
     </div>
   </nav>
 
   <!-- Hero Section -->
   <section class="hero">
-    <div class="hero-content">
-      <h1>Verify Product<br>Authenticity</h1>
-      <p>Scan any QR code to instantly verify if your product is genuine or counterfeit.</p>
-      <div class="badge">🔐 Military-Grade Security • Real-Time Detection</div>
+    <div class="container">
+      <h1>Generate & Verify<br>Product Authenticity</h1>
+      <p>Create secure QR codes and verify products instantly with military-grade encryption.</p>
     </div>
   </section>
 
-  <!-- Verify Section -->
-  <section class="section verify-section">
+  <!-- SECTION 1: Generate QR Codes -->
+  <section id="generate" class="section generate-section">
     <div class="container">
-      <div class="verify-grid">
-        <!-- QR Scanner Card -->
-        <div class="verify-card">
-          <div class="card-header">
-            <h2>📱 Scan QR Code</h2>
-            <p>Use your phone camera or our app</p>
-          </div>
+      <div class="section-header">
+        <h2>📲 Generate QR Codes</h2>
+        <p>Create unique, encrypted QR codes for your products</p>
+      </div>
+
+      <div class="content-grid">
+        <!-- Form -->
+        <div class="form-card">
+          <h3>Product Details</h3>
           
-          <form id="qrForm" class="qr-form">
-            <div class="input-group">
-              <label for="qrInput">QR Code Data</label>
-              <textarea 
-                id="qrInput" 
-                placeholder="Paste QR code data or scan with your phone..."
-                rows="4"
-              ></textarea>
-              <small>Or tap the camera icon below to scan directly</small>
+          <form id="generateForm" class="form">
+            <div class="form-group">
+              <label for="productName">Product Name *</label>
+              <input 
+                type="text" 
+                id="productName" 
+                placeholder="e.g., Amoxicillin 500mg"
+                required
+              >
             </div>
 
-            <div class="button-group">
-              <button type="submit" class="btn btn-primary">
-                🔍 Verify Product
-              </button>
-              <button type="button" class="btn btn-secondary" id="cameraBtn">
-                📷 Use Camera
-              </button>
+            <div class="form-group">
+              <label for="brandName">Brand Name *</label>
+              <input 
+                type="text" 
+                id="brandName" 
+                placeholder="e.g., Pharmaceutical Ltd"
+                required
+              >
             </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="batchNumber">Batch Number *</label>
+                <input 
+                  type="text" 
+                  id="batchNumber" 
+                  placeholder="e.g., BATCH-2024-001"
+                  required
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="quantity">Quantity *</label>
+                <input 
+                  type="number" 
+                  id="quantity" 
+                  placeholder="Number of units"
+                  min="1"
+                  max="100"
+                  value="5"
+                  required
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="facility">Manufacturing Facility</label>
+              <input 
+                type="text" 
+                id="facility" 
+                placeholder="e.g., Mumbai Plant"
+              >
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="mfgDate">Manufacturing Date</label>
+                <input type="date" id="mfgDate">
+              </div>
+
+              <div class="form-group">
+                <label for="expDate">Expiry Date</label>
+                <input type="date" id="expDate">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-large">
+              🔐 Generate QR Codes
+            </button>
           </form>
         </div>
 
-        <!-- How It Works Card -->
-        <div class="verify-card info-card">
-          <h3>How It Works</h3>
-          
-          <div class="step-item">
-            <div class="step-number">1</div>
-            <div>
-              <h4>Find QR Code</h4>
-              <p>Locate the QR code on your product packaging</p>
-            </div>
+        <!-- Preview -->
+        <div class="preview-card">
+          <h3>Information Summary</h3>
+          <div id="previewInfo" class="preview-info">
+            <p style="color: #999; text-align: center;">Fill the form to see a summary here</p>
           </div>
+        </div>
+      </div>
 
-          <div class="step-item">
-            <div class="step-number">2</div>
-            <div>
-              <h4>Scan or Paste</h4>
-              <p>Use your camera or paste the QR data</p>
-            </div>
-          </div>
-
-          <div class="step-item">
-            <div class="step-number">3</div>
-            <div>
-              <h4>Get Result</h4>
-              <p>Instant verification with full details</p>
-            </div>
-          </div>
-
-          <div class="step-item">
-            <div class="step-number">4</div>
-            <div>
-              <h4>Buy with Confidence</h4>
-              <p>Genuine products only from trusted sources</p>
-            </div>
-          </div>
+      <!-- QR Results Section -->
+      <div id="qrResults" class="qr-results hidden">
+        <h3>✅ QR Codes Generated Successfully</h3>
+        <div id="qrCodesContainer" class="qr-codes-grid"></div>
+        <div style="text-align: center; margin-top: 2rem;">
+          <button onclick="document.getElementById('qrResults').classList.add('hidden');" class="btn btn-secondary">
+            Generate More
+          </button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Result Section (Hidden until verified) -->
-  <section id="resultSection" class="section result-section hidden">
+  <!-- SECTION 2: Verify QR Codes -->
+  <section id="verify" class="section verify-section">
     <div class="container">
-      <div id="resultContainer"></div>
+      <div class="section-header">
+        <h2>🔍 Verify QR Code</h2>
+        <p>Scan or paste QR code data to verify product authenticity</p>
+      </div>
+
+      <div class="content-grid">
+        <!-- Verify Form -->
+        <div class="form-card">
+          <h3>Scan or Paste QR Data</h3>
+          
+          <form id="verifyForm" class="form">
+            <div class="form-group">
+              <label for="qrData">QR Code Data *</label>
+              <textarea 
+                id="qrData"
+                placeholder="Paste QR code data here..."
+                rows="5"
+                required
+              ></textarea>
+              <small>Or use your phone to scan the QR code directly</small>
+            </div>
+
+            <div class="form-group">
+              <label for="productSerial">Physical Serial Number (if required)</label>
+              <input 
+                type="text" 
+                id="productSerial" 
+                placeholder="e.g., UNIT-0001"
+              >
+              <small>Leave blank if not needed</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-large">
+              ✓ Verify Product
+            </button>
+          </form>
+        </div>
+
+        <!-- Verification Result -->
+        <div id="verifyResult" class="result-card hidden">
+          <div id="resultContent"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -131,36 +209,9 @@
         </div>
 
         <div class="feature">
-          <div class="feature-icon">🛡️</div>
-          <h3>Your Privacy Protected</h3>
-          <p>Verify without sharing personal data. Complete anonymity guaranteed</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Trust Section -->
-  <section class="section trust-section">
-    <div class="container">
-      <h2>Trusted by Millions Worldwide</h2>
-      <p>Protecting consumers from counterfeit products across pharmaceuticals, supplements, food, and electronics.</p>
-      
-      <div class="stats-grid">
-        <div class="stat">
-          <div class="stat-value">$2.4B</div>
-          <p>Annual losses prevented</p>
-        </div>
-        <div class="stat">
-          <div class="stat-value">99.95%</div>
-          <p>Detection accuracy</p>
-        </div>
-        <div class="stat">
-          <div class="stat-value">0.5s</div>
-          <p>Average verification time</p>
-        </div>
-        <div class="stat">
-          <div class="stat-value">24/7</div>
-          <p>Always available</p>
+          <div class="feature-icon">📊</div>
+          <h3>Complete Tracking</h3>
+          <p>Track every product from manufacturing to customer hands</p>
         </div>
       </div>
     </div>
@@ -179,9 +230,9 @@
           <h4>Quick Links</h4>
           <ul>
             <li><a href="/">Home</a></li>
-            <li><a href="#resultSection">Verify Product</a></li>
-            <li><a href="#">About Us</a></li>
-            <li><a href="#">Contact</a></li>
+            <li><a href="#generate">Generate QR</a></li>
+            <li><a href="#verify">Verify QR</a></li>
+            <li><a href="#">About</a></li>
           </ul>
         </div>
         
@@ -190,8 +241,8 @@
           <ul>
             <li><a href="#">Privacy Policy</a></li>
             <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">GDPR Compliant</a></li>
             <li><a href="#">Security Audit</a></li>
+            <li><a href="#">GDPR Compliant</a></li>
           </ul>
         </div>
       </div>
@@ -202,9 +253,6 @@
       </div>
     </div>
   </footer>
-
-  <!-- Hidden Camera Input -->
-  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
 
   <script src="app.js"></script>
 </body>
