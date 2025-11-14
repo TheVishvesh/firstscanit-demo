@@ -10,24 +10,26 @@
   <div class="container">
     <header>
       <h1>🔍 Scan QR Code</h1>
-      <p>Verify product authenticity</p>
-      <a href="index.html" class="back-link">← Back to Home</a>
+      <p>Verify product authenticity with PUF + Cryptography</p>
+      <a href="/" class="back-link">← Back to Home</a>
     </header>
     
     <main class="scan-page">
-      <div class="manual-entry">
-        <p>Paste QR data to verify:</p>
-        <textarea id="manualQR" placeholder="Paste QR data here..." rows="4"></textarea>
-        <button onclick="verifyManual()" class="btn btn-primary">
-          Verify Product
-        </button>
-      </div>
-      
-      <div id="result" class="verification-result hidden"></div>
-      
-      <div id="loading" class="loading hidden">
-        <div class="spinner"></div>
-        <p>Verifying with cryptographic signature...</p>
+      <div style="max-width: 600px; margin: 0 auto;">
+        <div class="manual-entry" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%); padding: 30px; border-radius: 12px; border: 2px solid #e0e7ff;">
+          <h3 style="color: #333; margin-top: 0;">📱 Paste QR Data to Verify</h3>
+          <p style="color: #666; font-size: 0.95rem;">
+            Paste the QR code data below. The system will verify both the cryptographic signature 
+            and the physical PUF pattern from the label.
+          </p>
+          <textarea id="manualQR" placeholder="Paste QR data here..." rows="4" style="margin: 15px 0;"></textarea>
+          <button onclick="verifyManual()" class="btn btn-primary" style="width: 100%;">
+            🔍 Verify Product
+          </button>
+        </div>
+        
+        <div id="result" class="verification-result hidden"></div>
+        <div id="loading" class="loading hidden"></div>
       </div>
     </main>
   </div>
