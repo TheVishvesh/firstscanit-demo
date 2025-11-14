@@ -8,6 +8,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Keep alive on free tier
+setInterval(() => {
+  fetch('https://firstscanit-backend.onrender.com/health')
+    .catch(err => console.log('Keep-alive ping'));
+}, 14 * 60 * 1000); // Ping every 14 minutes
+
+
 let batches = [];
 let scans = [];
 
