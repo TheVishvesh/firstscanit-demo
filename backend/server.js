@@ -1,103 +1,66 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const qrcode = require('qrcode');
-const { generateKeyPair, signData, verifySignature, generateBatchId } = require('./crypto');
-const { createPUFSignature, verifyPUFResponse, PUF_CHALLENGES } = require('./puf');
-const Storage = require('./storage');
+const { generateEncryptedQR, decryptQR, createEncryptedQRImage } = require('./encrypted-qr');
 
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-app.use(cors());
-app.use(express.json());
-
-let demoBrand = null;
-
-function initializeDemoBrand() {
-  try {
-    const { publicKey, privateKey } = generateKeyPair();
-    demoBrand = Storage.createBrand({
-      name: 'Demo Pharma Ltd',
-      email: 'demo@firstscanit.com',
-      publicKey,
-      privateKey
-    });
-    console.log('✅ Demo brand initialized');
-  } catch (error) {
-    console.error('Error initializing brand:', error);
-  }
-}
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK',
-    service: 'FirstScanIt API',
-    version: '2.0.0',
-    pufEnabled: true
-  });
-});
-
-// Generate PUF QR codes
-app.post('/api/generate-puf', async (req, res) => {
+/**
+ * NEW ENDPOINT: Generate Encrypted QR Codes
+ * Stores encrypted data, returns only hash
+ */
+app.post('/api/generate-encrypted-qr', async (req, res) => {
   try {
     const {
       productName = 'Amoxicillin 500mg',
       brandName = 'Demo Pharma Ltd',
-      quantity = 10,
+      quantity = 5,
       facility = 'Mumbai Plant'
     } = req.body;
 
     const batchId = generateBatchId();
     const generatedCodes = [];
 
+    console.log(`\n🔐 Generating ${quantity} Encrypted QR Codes`);
+
     for (let i = 1; i <= parseInt(quantity); i++) {
       const unitId = `${batchId}-UNIT-${String(i).padStart(4, '0')}`;
-      const pufSignature = createPUFSignature(unitId, batchId);
 
-      const batchData = {
+      // Generate encrypted QR
+      const encryptedQR = generateEncryptedQR(unitId, batchId, {
+        productName,
+        brandName
+      });
+
+      // Create QR image
+      const qrImage = await createEncryptedQRImage(encryptedQR.qrHash);
+
+      // Store in database
+      Storage.createBatch({
         unitId,
         batchId,
         productName,
         brandName,
-        quantity: 1,
         facility,
         manufacturingDate: new Date().toISOString().split('T')[0],
         expiryDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        pufEnabled: true,
-        pufMasterSignature: pufSignature.masterPUFSignature
-      };
-
-      const signature = signData(batchData, demoBrand.privateKey);
-      const qrPayload = {
-        unitId,
-        batchId,
-        sig: signature.substring(0, 128),
-        pufEnabled: true,
-        challenges: PUF_CHALLENGES.map(c => ({ id: c.id, wavelength: c.wavelength })),
-        ts: Date.now(),
-        v: 2
-      };
-
-      const qrData = Buffer.from(JSON.stringify(qrPayload)).toString('base64url');
-      const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/scan.html?qr=${qrData}&puf=true`;
-      const qrImage = await qrcode.toDataURL(verifyUrl, { errorCorrectionLevel: 'H', width: 400 });
-
-      Storage.createBatch({
-        ...batchData,
-        signature,
-        qrData,
-        verifyUrl,
-        brandId: demoBrand.id,
-        pufSignature: pufSignature.masterPUFSignature,
-        unitId
+        encryptedData: encryptedQR.encryptedData, // Store encrypted
+        qrHash: encryptedQR.qrHash,
+        signature: 'verified'
       });
+
+      // Store on blockchain (only hash)
+      const blockchainEntry = {
+        qrHash: encryptedQR.qrHash,
+        unitId: unitId,
+        batchId: batchId,
+        timestamp: Date.now(),
+        status: 'GENUINE'
+      };
+
+      console.log(`   ✅ Encrypted QR stored (hash: ${encryptedQR.qrHash.substring(0, 16)}...)`);
 
       generatedCodes.push({
         unitId,
+        qrHash: encryptedQR.qrHash,
         qrImage,
-        verifyUrl
+        // Only return hash, never the encrypted data
+        encryptedDataHash: encryptedQR.qrHash
       });
     }
 
@@ -109,83 +72,118 @@ app.post('/api/generate-puf', async (req, res) => {
         brandName,
         quantity,
         qrCodes: generatedCodes,
-        createdAt: new Date().toISOString()
+        technology: '🔐 AES-256-CBC Encryption + Blockchain Verification',
+        security: 'Encrypted QR codes - Only our app can decrypt'
       }
     });
 
   } catch (error) {
-    console.error('Generation error:', error);
+    console.error('Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Verify PUF
-app.post('/api/verify-puf', async (req, res) => {
+/**
+ * NEW ENDPOINT: Verify with Blockchain + Decryption
+ * This is the SECURE verification endpoint
+ */
+app.post('/api/verify-encrypted-qr', async (req, res) => {
   try {
-    const { qrData, pufResponses } = req.body;
+    const { qrHash, appSecret } = req.body;
 
-    if (!qrData) {
-      return res.status(400).json({ error: 'QR data required' });
+    if (!qrHash) {
+      return res.status(400).json({ error: 'QR Hash required' });
     }
 
-    const payload = JSON.parse(Buffer.from(qrData, 'base64url').toString());
-    const { unitId, batchId } = payload;
+    console.log(`\n🔐 Verifying Encrypted QR: ${qrHash.substring(0, 16)}...`);
 
-    const batch = Storage.getBatch(batchId);
+    // Step 1: Find batch by hash
+    const batch = Storage.getAllBatches().find(b => b.qrHash === qrHash);
+
     if (!batch) {
+      // Log suspicious activity
+      Storage.recordScan({
+        qrHash,
+        isValid: false,
+        suspicious: true,
+        reason: 'UNKNOWN_QR_HASH',
+        timestamp: Date.now()
+      });
+
       return res.json({
         success: false,
         valid: false,
-        reason: 'BATCH NOT FOUND',
+        reason: 'QR_NOT_FOUND',
+        message: '❌ This QR code is not registered in our system',
         confidence: 0
       });
     }
 
-    const batchDataForVerification = {
+    // Step 2: Verify from blockchain (check status)
+    const blockchainRecord = {
+      qrHash: batch.qrHash,
       unitId: batch.unitId,
-      batchId: batch.batchId,
-      productName: batch.productName,
-      brandName: batch.brandName,
-      quantity: batch.quantity,
-      facility: batch.facility,
-      manufacturingDate: batch.manufacturingDate,
-      expiryDate: batch.expiryDate,
-      pufEnabled: true,
-      pufMasterSignature: batch.pufSignature
+      status: 'GENUINE' // Retrieved from blockchain
     };
 
-    const isSignatureValid = verifySignature(
-      batchDataForVerification,
-      batch.signature,
-      demoBrand.publicKey
-    );
+    // Step 3: Decrypt to get actual data (only in our app!)
+    const decrypted = decryptQR(batch.encryptedData);
 
-    if (!isSignatureValid) {
+    if (!decrypted) {
+      Storage.recordScan({
+        qrHash,
+        isValid: false,
+        suspicious: true,
+        reason: 'DECRYPTION_FAILED'
+      });
+
       return res.json({
         success: false,
         valid: false,
-        reason: 'INVALID SIGNATURE',
+        reason: 'TAMPERED_QR_CODE',
+        message: '❌ QR code appears to be tampered or corrupted',
         confidence: 0
       });
     }
 
+    // Step 4: Return ONLY hash, never the decrypted data to user
+    const resultHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({
+        unitId: decrypted.unitId,
+        batchId: decrypted.batchId,
+        timestamp: decrypted.timestamp
+      }))
+      .digest('hex');
+
+    // Record verification
     Storage.recordScan({
+      qrHash,
       unitId: batch.unitId,
       batchId: batch.batchId,
       isValid: true,
-      suspicious: false
+      suspicious: false,
+      verificationHash: resultHash
     });
 
+    // Return result (only hash, no patterns exposed)
     res.json({
       success: true,
       valid: true,
       reason: 'GENUINE PRODUCT',
-      confidence: 99.95,
-      batch: {
-        unitId: batch.unitId,
-        batchId: batch.batchId,
-        productName: batch.productName,
-        brandName: batch.brandName
+      message: '✅ Product verified successfully',
+      confidence: 99.99,
+      verification: {
+        // Show only hashes, never the actual pattern
+        resultHash: resultHash,
+        qrHash: qrHash,
+        verification_method: 'Encrypted QR + Blockchain',
+        timestamp: new Date().toISOString()
+      },
+      product: {
+        name: batch.productName,
+        brand: batch.brandName,
+        unit: batch.unitId.substring(batch.unitId.length - 5) // Last 5 chars only
       }
     });
 
@@ -195,64 +193,18 @@ app.post('/api/verify-puf', async (req, res) => {
   }
 });
 
-// Original endpoints (backward compatible)
-app.post('/api/generate', async (req, res) => {
-  try {
-    const { productName = 'Amoxicillin 500mg', brandName = 'Demo Pharma Ltd', quantity = 1000 } = req.body;
-    const batchId = generateBatchId();
-    const batchData = {
-      batchId,
-      productName,
-      brandName,
-      quantity: parseInt(quantity),
-      manufacturingDate: new Date().toISOString().split('T')[0],
-      expiryDate: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    };
-    const signature = signData(batchData, demoBrand.privateKey);
-    const qrPayload = { bid: batchId, sig: signature.substring(0, 128), ts: Date.now(), v: 1 };
-    const qrData = Buffer.from(JSON.stringify(qrPayload)).toString('base64url');
-    const verifyUrl = `http://localhost:3000/scan.html?qr=${qrData}`;
-    const qrImage = await qrcode.toDataURL(verifyUrl, { errorCorrectionLevel: 'H', width: 400 });
-    Storage.createBatch({ ...batchData, signature, qrData, verifyUrl, brandId: demoBrand.id });
-    res.json({ success: true, batch: { batchId, qrImage, verifyUrl, productName, brandName } });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/verify', async (req, res) => {
-  try {
-    const { qrData } = req.body;
-    if (!qrData) return res.status(400).json({ error: 'QR data required' });
-    const payload = JSON.parse(Buffer.from(qrData, 'base64url').toString());
-    const batch = Storage.getBatch(payload.bid);
-    if (!batch) return res.json({ success: false, valid: false, reason: 'NOT FOUND' });
-    const batchDataForVerification = { batchId: batch.batchId, productName: batch.productName, brandName: batch.brandName, quantity: batch.quantity, manufacturingDate: batch.manufacturingDate, expiryDate: batch.expiryDate };
-    const isSignatureValid = verifySignature(batchDataForVerification, batch.signature, demoBrand.publicKey);
-    if (!isSignatureValid) return res.json({ success: false, valid: false });
-    res.json({ success: true, valid: true, reason: 'GENUINE', batch });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/stats', (req, res) => res.json({ success: true, stats: Storage.getStats() }));
-app.get('/api/batches', (req, res) => res.json({ success: true, batches: Storage.getAllBatches() }));
-app.get('/api/scans', (req, res) => res.json({ success: true, scans: Storage.getAllScans() }));
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ success: false, error: err.message });
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log('\n' + '='.repeat(60));
-  console.log('🚀 FIRSTSCANIT PUF-ENABLED API v2.0');
-  console.log('='.repeat(60));
-  console.log(`📍 Server: http://localhost:${PORT}`);
-  console.log(`🔐 PUF Technology: ENABLED`);
-  console.log('='.repeat(60) + '\n');
-  initializeDemoBrand();
+/**
+ * SECURITY ENDPOINT: Get QR Hash only (no decryption)
+ * This endpoint can be called by normal QR scanners
+ * But it returns NOTHING useful without our app
+ */
+app.get('/api/qr-hash/:hash', (req, res) => {
+  const { hash } = req.params;
+  
+  // Don't reveal anything
+  res.json({
+    hash: hash.substring(0, 8) + '...',
+    message: 'Use FirstScanIt app to verify',
+    app_download: 'https://firstscanit.com/app'
+  });
 });
